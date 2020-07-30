@@ -5,7 +5,8 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
-const md5 = require('md5');
+const bcrypt = require('bcrypt');
+const saltRounds = 10;
 mongoose.connect('mongodb://localhost:27017/secretsDB', {useNewUrlParser: true, useUnifiedTopology: true});
 
 const app = express();
@@ -39,22 +40,25 @@ app.get("/register", function(req, res){
 });
 
 app.post("/register", function(req, res){
-  const newUser = new User({
-    email: req.body.username,
-    password: md5(req.body.password)
-  });
-  newUser.save(function(err){
-    if(!err){
-      res.render("secrets");
-    } else {
-      console.log(err);
-    }
+
+  bcrypt.hash(req.body.password, saltRounds, function(err, hash) {
+    const newUser = new User({
+      email: req.body.username,
+      password: hash
+    });
+    newUser.save(function(err){
+      if(!err){
+        res.render("secrets");
+      } else {
+        console.log(err);
+      }
+    });
   });
 });
 
 app.post("/login", function(req, res){
 
-  const password =  req.body.password
+  const password =  req.body.password;
 
   User.findOne(
     {email: req.body.username},
@@ -64,15 +68,20 @@ app.post("/login", function(req, res){
         console.log(err);
       } else {
         if (result) {
-          if (result.password === md5(password)) {
-            res.render("secrets");
-          }
+          //compare our plain text to hashed in db
+          bcrypt.compare(password, result.password, function(err, result) {
+              //result true
+              if (result === true) {
+                res.render("secrets");
+              }
+              else {
+                console.log("unsuccessful");
+              }
+          });
         }
       }
   });
 });
-
-
 
 app.listen(3000, function(){
   console.log("Server started on port 3000");
