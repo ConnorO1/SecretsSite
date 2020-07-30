@@ -4,6 +4,7 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
+const encrypt = require('mongoose-encryption');
 mongoose.connect('mongodb://localhost:27017/secretsDB', {useNewUrlParser: true, useUnifiedTopology: true});
 
 const app = express();
@@ -14,10 +15,13 @@ app.use(bodyParser.urlencoded({
   extended: true
 }));
 
-const userSchema = {
+const userSchema = new mongoose.Schema({
   email: String,
   password: String
-}
+});
+
+const secret = "thisisalongunguessablestringgggngn";
+userSchema.plugin(encrypt, { secret: secret, encryptedFields: ['password'] });
 
 // mongoose db model
 
@@ -51,20 +55,21 @@ app.post("/register", function(req, res){
 });
 
 app.post("/login", function(req, res){
+
+  const password =  req.body.password
+
   User.findOne(
-    {email: req.body.username,
-    password: req.body.password},
+    {email: req.body.username},
     function(err, result){
-      if (!err){
-        if (result) {
-          res.render("secrets");
-        } else {
-          console.log("Sorry no users matched that criteria");
-          res.render("login")
-        }
-      } else {
+
+      if (err) {
         console.log(err);
-        res.render("login");
+      } else {
+        if (result) {
+          if (result.password === password) {
+            res.render("secrets");
+          }
+        }
       }
   });
 });
