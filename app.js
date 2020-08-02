@@ -36,7 +36,8 @@ app.use(passport.session());
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String
+  googleId: String,
+  secret: String
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -74,6 +75,33 @@ app.get("/", function(req, res){
   res.render("home");
 });
 
+app.get("/submit", function(req, res){
+  if (req.isAuthenticated()){
+    res.render("submit");
+  } else {
+    res.redirect("/login");
+  }
+});
+
+app.post("/submit", function(req, res){
+  submittedSecret = req.body.secret;
+  // passport saves users details - this is how we can associate information with the user
+  // stored in req.user.id
+  User.findById(req.user.id, function(err, result){
+    if (!err) {
+      if (result){
+        result.secret = submittedSecret;
+        result.save(function() {
+          res.redirect("/secrets");
+        })
+      }
+    } else {
+      console.log(err);
+    }
+  });
+
+});
+
 app.get("/auth/google",
   passport.authenticate("google", { scope: ['profile'] })
 );
@@ -94,11 +122,16 @@ app.get("/register", function(req, res){
 });
 
 app.get("/secrets", function(req, res){
-  if (req.isAuthenticated()){
-    res.render("secrets");
-  } else {
-    res.redirect("/login");
-  }
+  // find users where secret field not null to display data
+  User.find({"secret": {$ne:null}}, function(err, results) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (results) {
+        res.render("secrets", {results: results});
+      }
+    }
+  })
 });
 
 app.post("/register", function(req, res){
